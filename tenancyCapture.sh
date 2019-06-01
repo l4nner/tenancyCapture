@@ -13,6 +13,8 @@
 # Compartments, Policies, VM instances, VNIC attachments, VCNs, Subnets, Route Tables, Security Lists, Load Balancers, DRGs, DRG attachments, CPEs, IPSec connections, Virtual Circuits
 # 
 
+command -v oci >/dev/null 2>&1 || { echo >&2 "OCI CLI is not installed."; exit 1; }
+
 # format subtitles for each resource type under the tenancy, for better legibility
 printTitle() {
 	title=$1; str=-; num="80"
