@@ -10,10 +10,8 @@
 # - This script is not meant to be quick. We've chosen accuracy over performance.
 # - This version ignores resources inside the root compartment
 # - Resource types captured:
-# Compartments, Policies, VM instances, VNIC attachments, VCNs, Subnets, Route Tables, Security Lists, Load Balancers, DRGs, DRG attachments, CPEs, IPSec connections, Virtual Circuits
-# 
-
-command -v oci >/dev/null 2>&1 || { echo >&2 "OCI CLI is not installed."; exit 1; }
+# Compartments, Policies, VM instances, VNIC attachments, VCNs, Subnets, Route Tables, Security Lists, Load Balancers, DRGs, DRG attachments, CPEs, IPSec connections, Virtual Circuits, DB Systems, Database backups, Public IPs.
+#
 
 # format subtitles for each resource type under the tenancy, for better legibility
 printTitle() {
@@ -31,8 +29,8 @@ do
     compID=`oci iam compartment get --compartment-id $compID | jq -r '[.data.id]|.[]'`
     compName=`oci iam compartment get --compartment-id $compID | jq -r '[.data.name]|.[]'`
     printf "\n\nCOMPARTMENT $compName * * * * * * \n"
-    # Policies
-    printTitle "Policies ($compName)"
+    # Policies 
+    printTitle "Policies ($compName)" # typical orphaned resource type
     iamPolicyIDs=`oci iam policy list --all --compartment-id $compID | jq -r '[.data[].id]|.[]'`
     oci network cpe list --compartment-id $compID
 
@@ -48,10 +46,10 @@ do
             instanceName=`oci compute instance get --instance-id $instanceID | jq -r '[.data."display-name"]|.[]'`
             printTitle "VM instance $instanceName"
             oci compute instance get --instance-id $instanceID
-            # VNIC attachments
-            printTitle "VNIC attachment(s) for $instanceName"
-            oci compute vnic-attachment list --instance-id $instanceID --compartment-id $compID
-        done          
+            # VNICs 
+            printTitle "VNICs for $instanceName"
+            oci compute instance list-vnics --instance-id $instanceID | jq -r '[.data[]."display-name"]|.[]'
+        done
     fi
 
     # VCNs
@@ -64,18 +62,18 @@ do
         for vcnID in $vcnIDs
         do
             vcnName=`oci network vcn get --vcn-id $vcnID | jq -r '[.data."display-name"]|.[]'`
-            printTitle "VCN $vcnName ($compName)"            
+            printTitle "VCN $vcnName ($compName)"
             oci network vcn get --vcn-id $vcnID
 
             # Subnets
             printTitle "Subnets for VCN $vcnName ($compName)"
             for subnetID in `oci network subnet list --compartment-id $compID --vcn-id $vcnID | jq -r '[.data[].id]|.[]'`
-            do  
+            do
                 subnetName=`oci network subnet get --subnet-id $subnetID | jq -r '[.data."display-name"]|.[]'`
                 printTitle "Subnet $subnetName ($compName)"
-                oci network subnet get --subnet-id $subnetID 
+                oci network subnet get --subnet-id $subnetID
             done # Subnets
-        
+
             # Route table
             printTitle "Route Tables for VCN $vcnName ($compName)"
             for routeTableID in `oci network route-table list --compartment-id $compID --vcn-id $vcnID | jq -r '[.data[].id]|.[]'`
@@ -99,7 +97,7 @@ do
 
     # DRGs
     printTitle "DRGs ($compName)"
-    oci network drg list --compartment-id $compID 
+    oci network drg list --compartment-id $compID
 
     # DRG Attachments
     printTitle "DRG Attachments ($compName)"
@@ -107,7 +105,7 @@ do
 
     # CPEs
     printTitle "CPEs ($compName)"
-    oci network cpe list --compartment-id $compID 
+    oci network cpe list --compartment-id $compID
 
     # IPSec Connections
     printTitle "IPSec connections ($compName)"
@@ -117,6 +115,18 @@ do
     printTitle "Virtual Circuits ($compName)"
     oci network virtual-circuit list --compartment-id $compID
 
+	# Public IPSec
+	printTitle "Public IP addresses" # typical orphaned resource type
+	oci network public-ip list --compartment-id $compID --scope region --all
+
+	# DBSystems
+	printTitle "Databases"
+	oci db system list --compartment-id $compID
+
+	# Database Backups
+	printTitle "Database Backups" # typical orphaned resource type
+		oci db backup list --compartment-id $compID
+
     # Load Balancers
     printTitle "Load Balancers ($compName)"
     for lbID in `oci lb load-balancer list --compartment-id $compID | jq -r '[.data[].id]|.[]'`
@@ -124,5 +134,39 @@ do
         lbName=`oci lb load-balancer get --load-balancer-id $lbID | jq -r '[.data."display-name"]|.[]'`
         echo " Load Balancer $lbName "
         oci lb load-balancer get --load-balancer-id $lbID
+    done
+
+    printTitle "Volume Backups"
+    oci bv backup list --compartment-id $compID
+    printTitle "Boot Volume Backups"
+    oci bv boot-volume-backup list --compartment-id $compID
+    printTitle "Volumes"
+    oci bv volume list --compartment-id $compID
+    printTitle "Volume Groups"
+    oci bv volume-group list --compartment-id $compID
+    printTitle "Volume Group Backups"
+    oci bv volume-group-backup list --compartment-id $compID
+    printTitle "DNS Zones"
+    oci dns zone list --compartment-id $compID
+    printTitle "Email Senders"
+    oci email sender list --compartment-id $compID
+    printTitle "File Server Exports"
+    oci fs export list --compartment-id $compID
+    printTitle "Object Storage Buckets"
+    oci os bucket list --compartment-id $compID
+    printTitle "Tag Namespaces" # typical orphaned resource type. Mostly when trying to delete a compartment.
+    oci iam tag-namespace list --compartment-id $compID
+
+    for ad in `oci iam availability-domain list --compartment-id $compID | jq -r '.data[].name'`
+    do
+        echo "--------Availability Domain: $ad----------"
+        printTitle "Boot Volumes"
+        oci bv boot-volume list --compartment-id $compID --availability-domain $ad | jq -r '.data[]."display-name"'
+        printTitle "Export Sets"
+        oci fs export-set list --compartment-id $compID --availability-domain $ad |  jq -r '.data[]."display-name"'
+        printTitle "File Systems"
+        oci fs file-system list --compartment-id $compID --availability-domain $ad |  jq -r '.data[]."display-name"'
+        printTitle "Mount Targets" # typical orphaned resource type. Mostly when trying to delete VCNs
+        oci fs mount-target list --compartment-id $compID --availability-domain $ad |  jq -r '.data[]."display-name"'
     done
 done
