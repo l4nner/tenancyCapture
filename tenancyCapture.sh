@@ -10,7 +10,13 @@
 # - This script is not meant to be quick. We've chosen accuracy over performance.
 # - This version ignores resources inside the root compartment
 # - Resource types captured:
-# Compartments, Policies, VM instances, VNIC attachments, VCNs, Subnets, Route Tables, Security Lists, Load Balancers, DRGs, DRG attachments, CPEs, IPSec connections, Virtual Circuits, DB Systems, Database backups, Public IPs.
+#
+# Important note
+# Currently, OCI API does not offer a way to list all of the resources under a tenancy.
+# This script is an attempt to list the most commonly used resources as well as the most common culprits.
+# For example, the ones will stay hidden after you terminate the associated resource that was visiable from the Console.
+# Use this script at your own risk. There isn't inherited risks of running it though. All it does is listing.
+# Although there is no guaratee that it will list all of your resources, the script is usually helpful.
 #
   
   
